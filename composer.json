@@ -2,9 +2,9 @@
     "name": "listen-rain/rest-api-service-provider",
     "license": "MIT",
     "authors": [
-        {
-            "name": "",
-            "email": ""
+    	{
+            "name": "faris",
+            "email": "faris2017@qq.com"
         }
     ],
     "require": {
