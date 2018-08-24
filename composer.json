@@ -7,9 +7,16 @@
             "email": "faris2017@qq.com"
         }
     ],
+    "autoload": {
+        "psr-4": {
+            "Haibian\\Restapi\\": "src/"
+        }
+    },	
+    "minimum-stability": "stable",	
     "require": {
 	"php": ">=5.4",
 	"guzzlehttp/guzzle": "~6.3.3",
+	"monolog/monolog": "*",
         "illuminate/config": "~5.0",
         "illuminate/support": "~5.0"
     }
