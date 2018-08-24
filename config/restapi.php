@@ -8,7 +8,7 @@ return [
     'connect_timeout' => 5,
 
     //默认的secret
-    'secret' => 'OhG4yrqtoH422mYQ58WFpIURZxCQRbJl',
+    'secret' => '',
 
     //请求接口的log文件地址
     'log_file' => storage_path('logs/restapi.log'),
