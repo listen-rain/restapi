@@ -15,7 +15,7 @@
     "minimum-stability": "stable",	
     "require": {
 	"php": ">=5.4",
-	"guzzlehttp/guzzle": "~6.3.3",
+	"guzzlehttp/guzzle": "~6.2.3",
 	"monolog/monolog": "*",
         "illuminate/config": "~5.0",
         "illuminate/support": "~5.0"
