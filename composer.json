@@ -1,15 +1,15 @@
 {
-    "name": "listen-rain/rest-api-service-provider",
+    "name": "listen/restapi",
     "license": "MIT",
     "authors": [
     	{
-            "name": "faris",
-            "email": "faris2017@qq.com"
+            "name": "zhufengwei",
+            "email": "m15275049388@163.com"
         }
     ],
     "autoload": {
         "psr-4": {
-            "Haibian\\Restapi\\": "src/"
+            "Listen\\Restapi\\": "src/"
         }
     },	
     "minimum-stability": "stable",	

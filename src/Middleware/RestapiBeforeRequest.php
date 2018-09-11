@@ -1,10 +1,10 @@
 <?php
 
-namespace Haibian\Restapi\Middleware;
+namespace Listen\Restapi\Middleware;
 
 use App\Http\Requests\Request;
 use Closure;
-use Haibian\Restapi\Facades\Restapi;
+use Listen\Restapi\Facades\Restapi;
 
 class RestapiBeforeRequest
 {

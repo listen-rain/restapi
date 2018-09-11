@@ -1,6 +1,6 @@
 <?php
 
-namespace Haibian\Restapi;
+namespace Listen\Restapi;
 
 use Illuminate\Support\ServiceProvider;
 

@@ -1,6 +1,6 @@
 <?php
 
-namespace Haibian\Restapi\Facades;
+namespace Listen\Restapi\Facades;
 
 use Illuminate\Support\Facades\Facade;
 
