@@ -19,16 +19,23 @@ class Restapi
 
     protected $secret;
 
+    protected $client;
+
     public function __construct(Repository $config)
     {
         $this->config = $config;
         $this->secret = $config->get('restapi.secret');
+        $this->client();
+    }
 
-        $this->client = new Client([
-                                       'timeout'         => $config->get('restapi.request_timeout'),
-                                       'connect_timeout' => $config->get('restapi.connect_timeout'),
-                                       'http_errors'     => true,
-                                   ]);
+    private function client()
+    {
+        $this->client = new Client(
+            [
+                'timeout'         => $this->config->get('restapi.request_timeout'),
+                'connect_timeout' => $this->config->get('restapi.connect_timeout'),
+                'http_errors'     => true,
+            ]);
     }
 
     private function addSign(array $params, $secret)
@@ -47,16 +54,9 @@ class Restapi
         return md5(md5($paramStr) . $secret);
     }
 
-    public function get($module, $uri, $params, $headers = [], $action = 'POST')
+    public function get($module, $uri, $params, $headers = [], $method = 'POST')
     {
-        $res = $this->mget([[
-                                'module'  => $module,
-                                'uri'     => $uri,
-                                'params'  => $params,
-                                'headers' => $headers,
-                                'method'  => $action
-                            ]]);
-
+        $res = $this->mget([compact('module', 'uri', 'params', 'headers', 'method')]);
         return $res[0];
     }
 
@@ -116,7 +116,6 @@ class Restapi
                                                   });
         }
 
-
         $results = \GuzzleHttp\Promise\unwrap($promises);
         $return  = [];
         foreach ($apis as $k => $api) {
@@ -124,7 +123,6 @@ class Restapi
         }
 
         return $return;
-
     }
 
     private function getBaseUri($module)
@@ -134,8 +132,8 @@ class Restapi
 
     public function addlog($module, $uri, $request, $response, $code)
     {
-        $logger      = new Logger($this->config->get('restapi.log_channel'));
-        $file_name   = $this->config->get('restapi.log_file');
+        $logger    = new Logger($this->config->get('restapi.log_channel'));
+        $file_name = $this->config->get('restapi.log_file');
 
         $eventRotate = new RotatingFileHandler($file_name, Logger::INFO);
         $eventRotate->setFormatter(new LineFormatter("[%datetime%] [%level_name%] %channel% - %message% %extra%\n"));
@@ -167,3 +165,4 @@ class Restapi
         return $sign == $this->getSign($inputs, $this->secret);
     }
 }
+
