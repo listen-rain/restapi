@@ -33,7 +33,7 @@ class Restapi
 
     protected function addSign($params, $secret)
     {
-        if (!isset($params['sign'])) {
+        if ($secret && !isset($params['sign'])) {
             $params['sign'] = $this->getSign($params, $secret);
         }
 
@@ -47,18 +47,57 @@ class Restapi
         return md5(md5($paramStr) . $secret);
     }
 
-    public function get($module, $uri, $params, $headers = [], $action = 'POST')
+    public function get($module, $uri, $params, $headers = [], $action = 'GET')
     {
-        $res = $this->client->get(
-            [[
-                 'module'  => $module,
-                 'uri'     => $uri,
-                 'params'  => $params,
-                 'headers' => $headers,
-                 'method'  => $action
-             ]]);
+        $options = [
+            'query'   => $params,
+            'headers' => $headers
+        ];
 
-        return array_first($res);
+        $result = $this->client->send(
+            $this->makeRequest($module, $uri, $params, $headers, $action),
+            $options
+        );
+
+        return $this->getResponse($module, $params, $result, $uri);
+    }
+
+    public function post($module, $uri, $params, $headers = [], $action = 'POST')
+    {
+        $options = [
+            'form_params' => $params,
+            'headers'     => $headers
+        ];
+
+        $result = $this->client->send(
+            $this->makeRequest($module, $uri, $params, $headers, $action),
+            $options
+        );
+
+        return $this->getResponse($module, $params, $result, $uri);
+    }
+
+    public function multipart($module, $uri, $params, $headers = [], $action = 'POST')
+    {
+        $options = [
+            'multipart' => $params,
+            'headers'   => $headers
+        ];
+
+        $result = $this->client->send(
+            $this->makeRequest($module, $uri, $params, $headers, $action),
+            $options
+        );
+
+        return $this->getResponse($module, $params, $result, $uri);
+    }
+
+    protected function makeRequest($module, $uri, $params, $headers = [], $action)
+    {
+        $params   = $this->addSign($params, $this->config->get('restapi.' . $module . '.secret'));
+        $base_uri = $this->getBaseUri($module);
+
+        return new Request($action, $base_uri . $uri);
     }
 
     protected function getResponse($module, $params, $response, $uri)
@@ -132,14 +171,6 @@ class Restapi
 
     protected function getBaseUri($module)
     {
-        if (
-            isset($_SERVER['HTTP_HOST'])
-            && preg_match('/^(test|ceshi)\./', $_SERVER['HTTP_HOST'])
-        ) {
-
-            return $this->config->get('restapi.' . $module . '.base_uri');
-        }
-
         return $this->config->get('restapi.' . $module . '.base_uri');
     }
 
