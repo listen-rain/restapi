@@ -47,8 +47,7 @@ class Restapi
      *
      * @return array
      */
-    protected function addSign(array $params, $secret)
-    : array
+    protected function addSign(array $params, $secret): array
     {
         if ($secret && !isset($params['sign'])) {
             $params['sign'] = $this->getSign($params, $secret);
@@ -67,8 +66,7 @@ class Restapi
      *
      * @return object
      */
-    protected function makeRequest(string $module, string $uri, string $action)
-    : Request
+    protected function makeRequest(string $module, string $uri, string $action): Request
     {
         $base_uri = $this->getBaseUri($module);
 
@@ -118,8 +116,7 @@ class Restapi
      *
      * @return string
      */
-    protected function getSign(array $params, string $secret)
-    : string
+    protected function getSign(array $params, string $secret): string
     {
         ksort($params);
         $paramStr = http_build_query($params, null, ini_get('arg_separator.output'), PHP_QUERY_RFC3986);
@@ -208,8 +205,7 @@ class Restapi
      * @return array
      * @throws \Throwable
      */
-    public function mget(array $apis)
-    : array
+    public function mget(array $apis): array
     {
         if (!is_array($apis)) {
             return [];
@@ -260,8 +256,7 @@ class Restapi
      *
      * @return string
      */
-    protected function getBaseUri(string $module)
-    : string
+    protected function getBaseUri(string $module): string
     {
         return $this->config->get('restapi.' . $module . '.base_uri');
     }
@@ -305,8 +300,7 @@ class Restapi
      *
      * @return bool
      */
-    public function checkServer(\Illuminate\Http\Request $request)
-    : bool
+    public function checkServer(\Illuminate\Http\Request $request): bool
     {
         $inputs = $request->all();
         $path   = $request->path();
