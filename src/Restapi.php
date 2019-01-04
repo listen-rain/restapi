@@ -50,7 +50,7 @@ class Restapi
     public function get($module, $uri, $params, $headers = [], $action = 'GET')
     {
         $options = [
-            'query'   => $params,
+            'query'   => $this->addSign($params, $this->config->get('restapi.' . $module . '.secret')),
             'headers' => $headers
         ];
 
@@ -65,7 +65,7 @@ class Restapi
     public function post($module, $uri, $params, $headers = [], $action = 'POST')
     {
         $options = [
-            'form_params' => $params,
+            'form_params' => $this->addSign($params, $this->config->get('restapi.' . $module . '.secret')),
             'headers'     => $headers
         ];
 
@@ -80,7 +80,7 @@ class Restapi
     public function multipart($module, $uri, $params, $headers = [], $action = 'POST')
     {
         $options = [
-            'multipart' => $params,
+            'multipart' => $this->addSign($params, $this->config->get('restapi.' . $module . '.secret')),
             'headers'   => $headers
         ];
 
@@ -94,9 +94,7 @@ class Restapi
 
     protected function makeRequest($module, $uri, $params, $headers = [], $action)
     {
-        $params   = $this->addSign($params, $this->config->get('restapi.' . $module . '.secret'));
         $base_uri = $this->getBaseUri($module);
-
         return new Request($action, $base_uri . $uri);
     }
 
