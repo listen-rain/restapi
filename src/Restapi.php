@@ -11,7 +11,7 @@ use Monolog\Logger;
 
 class Restapi
 {
-    const BASENAME = 'restapi';
+    const BASENAME = 'restapi.';
 
     public function __construct(Repository $config)
     {
