@@ -1,24 +1,23 @@
 {
-  "name": "listen/restapi",
-  "license": "MIT",
-  "authors": [
-    {
-      "name": "zhufengwei",
-      "email": "zhufengwei@aliyun.com"
+    "name": "listen/restapi",
+    "license": "MIT",
+    "authors": [
+    	{
+            "name": "zhufengwei",
+            "email": "m15275049388@163.com"
+        }
+    ],
+    "autoload": {
+        "psr-4": {
+            "Listen\\Restapi\\": "src/"
+        }
+    },
+    "minimum-stability": "stable",
+    "require": {
+	"php": ">=5.4",
+	"guzzlehttp/guzzle": "~6.2.3",
+	"monolog/monolog": "*",
+        "illuminate/config": "~5.0",
+        "illuminate/support": "~5.0"
     }
-  ],
-  "autoload": {
-    "psr-4": {
-      "Listen\\Restapi\\": "src/"
-    }
-  },
-  "minimum-stability": "stable",
-  "require": {
-    "php": ">=5.4",
-    "guzzlehttp/guzzle": "~6.2.3",
-    "monolog/monolog": "*",
-    "illuminate/config": "~5.0",
-    "illuminate/support": "~5.0"
-  }
 }
-
