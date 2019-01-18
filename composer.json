@@ -1,6 +1,7 @@
 {
     "name": "listen/restapi",
     "license": "MIT",
+    "version": "3.0.1",
     "authors": [
     	{
             "name": "zhufengwei",
