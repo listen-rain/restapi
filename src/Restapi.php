@@ -134,17 +134,19 @@ class Restapi
     {
         $logger    = new Logger($this->config->get('restapi.log_channel'));
         $file_name = $this->config->get('restapi.log_file');
-
-        $eventRotate = new RotatingFileHandler($file_name, Logger::INFO);
-        $eventRotate->setFormatter(new LineFormatter("[%datetime%] [%level_name%] %channel% - %message% %extra%\n"));
-
-        $logger->pushHandler($eventRotate);
+        $logger->pushHandler(new StreamHandler($file_name, Logger::INFO, false));
         $logger->pushProcessor(function ($record) use ($request, $uri, $response, $code) {
-            $record['extra'] = compact('uri', 'request', 'response', 'code');
+            $record['extra'] = [
+                'uri'      => $uri,
+                'request'  => $request,
+                'response' => $response,
+                'code'     => $code
+            ];
+
             return $record;
         });
 
-        $logger->addInfo($module);
+        $logger->addInfo(self::BASENAME . $module);
     }
 
     public function checkServer($request)
