@@ -13,6 +13,11 @@ class Restapi
 {
     const BASENAME = 'restapi';
 
+    /**
+     * @var array
+     */
+    protected $callbacks = [];
+
     public function __construct(Repository $config)
     {
         $this->config = $config;
@@ -27,6 +32,20 @@ class Restapi
                 'connect_timeout' => $this->connectTimeout,
                 'http_errors'     => true,
             ]);
+    }
+
+    public function setCallback($name, \Closure $closure)
+    {
+        $this->callbacks[$name] = \Closure::bind($closure, $this);
+
+        return $this;
+    }
+
+    public function applyCallback($instance, $message, $code)
+    {
+        foreach ($this->callbacks as $callback) {
+            $callback($instance, $message, $code);
+        }
     }
 
     protected function addSign($params, $secret)
@@ -62,6 +81,8 @@ class Restapi
 
     public function post($module, $uri, $params, $headers = [], $action = 'POST')
     {
+        $this->applyCallback($this, 'lalala', 12345);
+
         $options = [
             'form_params' => $this->addSign($params, $this->config->get('restapi.' . $module . '.secret')),
             'headers'     => $headers
