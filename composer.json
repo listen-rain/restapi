@@ -1,7 +1,7 @@
 {
   "name": "listen/restapi",
   "license": "MIT",
-  "version": "3.1.1",
+  "version": "3.2.1",
   "authors": [
     {
       "name": "zhufengwei",
@@ -19,6 +19,6 @@
     "guzzlehttp/guzzle": "^6.2",
     "illuminate/config": "5.*",
     "illuminate/support": "5.*",
-    "listen/logcollector": "^3.1"
+    "listen/logcollector": "^4.1"
   }
 }
