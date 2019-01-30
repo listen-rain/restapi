@@ -24,6 +24,11 @@ class Restapi
     protected $logger;
 
     /**
+     * @var string
+     */
+    protected $signKeyName = 'sign';
+
+    /**
      * Restapi constructor.
      *
      * @param \Illuminate\Contracts\Config\Repository $config
@@ -42,6 +47,10 @@ class Restapi
                 'connect_timeout' => $this->connectTimeout,
                 'http_errors'     => true,
             ]);
+        $this->setLogger();
+        $this->pushExceptionCallback('logError', function ($module, $message, $code, $otherParams) {
+            $this->logger->restapiError(compact('module', 'message', 'code', 'otherParams'));
+        });
     }
 
     /**
@@ -78,6 +87,7 @@ class Restapi
     /**
      * @date   2019/1/30
      * @author <zhufengwei@aliyun.com>
+     *
      * @param string $name
      *
      * @return $this
@@ -98,15 +108,17 @@ class Restapi
      * @date   2019/1/30
      * @author <zhufengwei@aliyun.com>
      *
-     * @param $message
-     * @param $code
+     * @param string $module
+     * @param string $message
+     * @param int    $code
+     * @param array  $otherParams
      *
      * @return $this
      */
-    public function applyCallback($message, $code)
+    public function applyCallback(string $module, string $message, int $code, array $otherParams = [])
     {
         foreach ($this->exceptionCallbacks as $callback) {
-            $callback($message, $code);
+            $callback($module, $message, $code, $otherParams);
         }
 
         return $this;
@@ -123,8 +135,8 @@ class Restapi
      */
     protected function addSign($params, $secret)
     {
-        if ($secret && !isset($params['sign'])) {
-            $params['sign'] = $this->getSign($params, $secret);
+        if ($secret && !isset($params[$this->signKeyName])) {
+            $params[$this->signKeyName] = $this->getSign($params, $secret);
         }
 
         return $params;
@@ -261,14 +273,14 @@ class Restapi
     protected function getResponse($module, $params, $response, $uri)
     {
         if (!$response) {
-            $this->logger->restapiError($module, $uri, $params, 'RESQUST_ERROR', 404);
+            $this->applyCallback($module, '请求方法不存在！', 404, compact('uri', 'params'));
             return false;
         }
 
         $code = $response->getStatusCode();
 
         if ($code != 200) {
-            $this->logger->restapiError($module, $uri, $params, '', $code);
+            $this->applyCallback($module, '请求出错！', $code, compact('uri', 'params'));
             return false;
         }
 
@@ -276,11 +288,11 @@ class Restapi
         $result     = json_decode($stringBody, true);
 
         if (!$result) {
-            $this->logger->restapiError($module, $uri, $params, $stringBody, $code);
+            $this->applyCallback($module, $stringBody, $code, compact('uri', 'params'));
             return false;
         }
 
-        $this->logger->restapi($module, $uri, $params, $result, $code);
+        $this->logger->restapi(compact('module', 'uri', 'params', 'result', 'code'));
         return $result;
     }
 
@@ -353,6 +365,21 @@ class Restapi
      * @date   2019/1/30
      * @author <zhufengwei@aliyun.com>
      *
+     * @param string $name
+     *
+     * @return $this
+     */
+    public function setSignKeyName(string $name)
+    {
+        $this->signKeyName = $name;
+
+        return $this;
+    }
+
+    /**
+     * @date   2019/1/30
+     * @author <zhufengwei@aliyun.com>
+     *
      * @param $request
      *
      * @return bool
@@ -366,12 +393,12 @@ class Restapi
         $path = '/' . $path;
         unset($inputs[$path]);
 
-        if (!isset($inputs['sign'])) {
+        if (!isset($inputs[$this->signKeyName])) {
             return false;
         }
 
-        $sign = $inputs['sign'];
-        unset($inputs['sign']);
+        $sign = $inputs[$this->signKeyName];
+        unset($inputs[$this->signKeyName]);
 
         return $sign == $this->getSign($inputs, $this->secret);
     }
