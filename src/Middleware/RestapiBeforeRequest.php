@@ -10,7 +10,6 @@ class RestapiBeforeRequest
 {
     public function handle($request, Closure $next)
     {
-
         if (!Restapi::checkServer($request)) {
             return response('Unauthorized.', 401);
         }
