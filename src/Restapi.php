@@ -7,6 +7,7 @@ use GuzzleHttp\Exception\RequestException;
 use GuzzleHttp\Psr7\Request;
 use Illuminate\Contracts\Config\Repository;
 use Listen\LogCollector\LogCollector;
+use Listen\LogCollector\Logger;
 use Listen\Restapi\Exceptions\RestapiException;
 
 class Restapi
@@ -21,7 +22,7 @@ class Restapi
     /**
      * @var \Listen\LogCollector\Logger
      */
-    protected $logger;
+    protected static $logger;
 
     /**
      * @var string
@@ -50,7 +51,7 @@ class Restapi
 
         $this->setLogger();
         $this->pushExceptionCallback('logError', function ($module, $message, $code, $otherParams) {
-            $this->logger->restapiError(compact('module', 'message', 'code', 'otherParams'));
+            static::$logger->restapiError(compact('module', 'message', 'code', 'otherParams'));
         });
     }
 
@@ -64,9 +65,17 @@ class Restapi
      */
     public function setLogger(string $name = 'restapi')
     {
-        $this->logger = app(LogCollector::class)
-            ->setBaseInfo('restapi', 'default')
-            ->load($name);
+        if (!static::$logger instanceof LogCollector) {
+            $mlogger = app(Logger::class, [$name])
+                ->setChannel($this->config->get('restapi.log_channel'))
+                ->setFile($this->config->get('restapi.log_file'))
+                ->setMode($this->config->get('restapi.log_mode'))
+                ->make();
+
+            static::$logger = app(LogCollector::class)
+                ->setBaseInfo('restapi', 'default')
+                ->addLogger($name, $mlogger);
+        }
 
         return $this;
     }
@@ -299,7 +308,7 @@ class Restapi
             return false;
         }
 
-        $this->logger->restapi(compact('module', 'uri', 'params', 'result', 'code'));
+        static::$logger->restapi(compact('module', 'uri', 'params', 'result', 'code'));
         return $result;
     }
 
