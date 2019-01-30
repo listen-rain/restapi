@@ -47,6 +47,7 @@ class Restapi
                 'connect_timeout' => $this->connectTimeout,
                 'http_errors'     => true,
             ]);
+
         $this->setLogger();
         $this->pushExceptionCallback('logError', function ($module, $message, $code, $otherParams) {
             $this->logger->restapiError(compact('module', 'message', 'code', 'otherParams'));
@@ -63,7 +64,9 @@ class Restapi
      */
     public function setLogger(string $name = 'restapi')
     {
-        $this->logger = app(LogCollector::class)->load($name);
+        $this->logger = app(LogCollector::class)
+            ->setBaseInfo('restapi', 'default')
+            ->load($name);
 
         return $this;
     }
@@ -171,14 +174,20 @@ class Restapi
      * @return bool|mixed
      * @throws \GuzzleHttp\Exception\GuzzleException
      */
-    public function get($module, $uri, $params, $headers = [], $action = 'GET')
+    public function get($module, $uri, $params, $headers = [])
     {
         $options = [
             'query'   => $this->addSign($params, $this->config->get('restapi.' . $module . '.secret')),
             'headers' => $headers
         ];
 
-        return $this->send($module, $uri, $params, $headers, $action, $options);
+        try {
+            $response = $this->client->get($this->getBaseUri($module) . $uri, $options);
+
+            return $this->getResponse($module, $params, $response, $uri);
+        } catch (RequestException $e) {
+            $this->applyCallback($module, $e->getMessage(), $e->getCode(), compact('uri', 'params'));
+        }
     }
 
     /**
@@ -194,14 +203,20 @@ class Restapi
      * @return bool|mixed
      * @throws \GuzzleHttp\Exception\GuzzleException
      */
-    public function post($module, $uri, $params, $headers = [], $action = 'POST')
+    public function post($module, $uri, $params, $headers = [])
     {
         $options = [
             'form_params' => $this->addSign($params, $this->config->get('restapi.' . $module . '.secret')),
             'headers'     => $headers
         ];
 
-        return $this->send($module, $uri, $params, $headers, $action, $options);
+        try {
+            $response = $this->client->post($this->getBaseUri($module) . $uri, $options);
+
+            return $this->getResponse($module, $params, $response, $uri);
+        } catch (RequestException $e) {
+            $this->applyCallback($module, $e->getMessage(), $e->getCode(), compact('uri', 'params'));
+        }
     }
 
     /**
@@ -217,27 +232,19 @@ class Restapi
      * @return bool|mixed
      * @throws \GuzzleHttp\Exception\GuzzleException
      */
-    public function multipart($module, $uri, $params, $headers = [], $action = 'POST')
+    public function multipart($module, $uri, $params, $headers = [])
     {
         $options = [
             'multipart' => $this->addSign($params, $this->config->get('restapi.' . $module . '.secret')),
             'headers'   => $headers
         ];
 
-        return $this->send($module, $uri, $params, $headers, $action, $options);
-    }
-
-    protected function send($module, $uri, $params, $headers, $action, $options)
-    {
         try {
-            $result = $this->client->send(
-                $this->makeRequest($module, $uri, $params, $headers, $action),
-                $options
-            );
-            return $this->getResponse($module, $params, $result, $uri);
-        } catch (RestapiException $e) {
-            $this->applyCallback($e->getMessage(), $e->getCode());
-            return [];
+            $response = $this->client->post($this->getBaseUri($module) . $uri, $options);
+
+            return $this->getResponse($module, $params, $response, $uri);
+        } catch (RequestException $e) {
+            $this->applyCallback($module, $e->getMessage(), $e->getCode(), compact('uri', 'params'));
         }
     }
 
@@ -253,7 +260,7 @@ class Restapi
      *
      * @return \GuzzleHttp\Psr7\Request
      */
-    protected function makeRequest($module, $uri, $params, $headers = [], $action)
+    protected function makeRequest($module, $uri, $action)
     {
         $base_uri = $this->getBaseUri($module);
         return new Request($action, $base_uri . $uri);
