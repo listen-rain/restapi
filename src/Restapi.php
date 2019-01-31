@@ -10,11 +10,13 @@ use GuzzleHttp\Psr7\Request;
 use Illuminate\Contracts\Config\Repository;
 use Monolog\Formatter\LineFormatter;
 use Monolog\Handler\RotatingFileHandler;
+use Monolog\Handler\StreamHandler;
 use Monolog\Logger;
 use Psr\Http\Message\ResponseInterface;
 
 class Restapi
 {
+    const BASENAME = 'restapi.';
 
     public function __construct(Repository $config)
     {
@@ -149,20 +151,23 @@ class Restapi
 
     public function addlog($module,$uri,$request,$response,$code){
 
-        $logger = new Logger($this->config->get('restapi.log_channel'));
+        $logger    = new Logger($this->config->get('restapi.log_channel'));
         $file_name = $this->config->get('restapi.log_file');
-        $eventRotate = new RotatingFileHandler($file_name, Logger::INFO);
-        $eventRotate->setFormatter(new LineFormatter("[%datetime%] [%level_name%] %channel% - %message% %extra%\n"));
-        $logger->pushHandler($eventRotate);
-        $logger->pushProcessor(function($record) use ($request,$uri,$response,$code){
-            $record['extra']['uri'] = $uri;
-            $record['extra']['request'] = $request;
-            $record['extra']['response'] = $response;
-            $record['extra']['code'] = $code;
+        try {
+            $logger->pushHandler(new StreamHandler($file_name, Logger::INFO, false));
+        } catch (\Exception $e) {
+            $logger->info('pushHandlerError', $e->getMessage());
+        }
+        $logger->pushProcessor(function ($record) use ($request, $uri, $response, $code) {
+            $record['extra'] = [
+                'uri'      => $uri,
+                'request'  => $request,
+                'response' => $response,
+                'code'     => $code
+            ];
             return $record;
         });
-
-        $logger->addInfo($module);
+        $logger->addInfo(self::BASENAME . $module);
     }
 
 

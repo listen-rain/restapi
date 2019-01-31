@@ -14,6 +14,6 @@ return [
     'log_file' => storage_path('logs/restapi.log'),
 
     //log 的channel
-    'log_channel' => 'REST-API',
+    'log_channel' => 'restapi',
 
 ];
