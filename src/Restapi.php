@@ -2,14 +2,10 @@
 
 namespace Listen\Restapi;
 
-
-use Exception;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\RequestException;
 use GuzzleHttp\Psr7\Request;
 use Illuminate\Contracts\Config\Repository;
-use Monolog\Formatter\LineFormatter;
-use Monolog\Handler\RotatingFileHandler;
 use Monolog\Handler\StreamHandler;
 use Monolog\Logger;
 use Psr\Http\Message\ResponseInterface;
@@ -66,7 +62,6 @@ class Restapi
     private function getResponse($module, $params, $response, $uri)
     {
         if (!$response) {
-            $this->addlog($module, $uri, $params, 'RESQUST_ERROR', 404);
             return false;
         }
         $code = $response->getStatusCode();
@@ -114,8 +109,11 @@ class Restapi
             $option['headers'] = $headers;
             $promises[$k]      = $this->client->sendAsync($request, $option)
                                               ->then(
-                                                  null,
-                                                  function (RequestException $e) {
+                                                  function (ResponseInterface $res) use ($module, $base_uri, $api, $request) {
+                                                      \Log::info('restapi.response', [$res]);
+                                                  },
+                                                  function (RequestException $e) use ($module, $base_uri, $api, $params) {
+                                                      $this->addlog($module, $base_uri . $api['uri'], $params, [$e->getMessage()], $e->getCode());
                                                   });
         }
 
