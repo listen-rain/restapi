@@ -12,6 +12,8 @@ use Psr\Http\Message\ResponseInterface;
 
 class Restapi
 {
+    use CallbackTrait;
+
     protected $config;
 
     protected $secret;
@@ -19,6 +21,8 @@ class Restapi
     protected $client;
 
     const BASENAME = 'restapi.';
+
+    protected $exceptionCallbacks = [];
 
     public function __construct(Repository $config)
     {
@@ -109,11 +113,13 @@ class Restapi
             $option['headers'] = $headers;
             $promises[$k]      = $this->client->sendAsync($request, $option)
                                               ->then(
-                                                  function (ResponseInterface $res) use ($module, $base_uri, $api, $request) {
-                                                      \Log::info('restapi.response', [$res]);
-                                                  },
+                                                  null,
                                                   function (RequestException $e) use ($module, $base_uri, $api, $params) {
                                                       $this->addlog($module, $base_uri . $api['uri'], $params, [$e->getMessage()], $e->getCode());
+                                                      $this->applyCallback($module, $e->getMessage(), $e->getCode(), [
+                                                          'uri' => $base_uri . $api['uri'],
+                                                          'params' => $params
+                                                      ]);
                                                   });
         }
 
