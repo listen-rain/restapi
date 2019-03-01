@@ -6,38 +6,86 @@ use GuzzleHttp\Client;
 use GuzzleHttp\Exception\RequestException;
 use GuzzleHttp\Psr7\Request;
 use Illuminate\Contracts\Config\Repository;
-use Monolog\Handler\StreamHandler;
-use Monolog\Logger;
 
 class Restapi
 {
+    use CallbackTrait {
+        CallbackTrait::__construct as private callbackConstruct;
+    }
+
     const BASENAME = 'restapi.';
 
+    /**
+     * @var array
+     */
+    protected $exceptionCallbacks = [];
+
+    /**
+     * @var \Listen\LogCollector\Logger
+     */
+    protected static $logger;
+
+    /**
+     * @var string
+     */
+    protected $signKeyName = 'sign';
+
+    /**
+     * @var \Illuminate\Contracts\Config\Repository
+     */
+    protected $config;
+
+    /**
+     * @var \GuzzleHttp\Client
+     */
+    protected $client;
+
+    /**
+     * @var mixed
+     */
+    protected $secret;
+
+    /**
+     * Restapi constructor.
+     * @param \Illuminate\Contracts\Config\Repository $config
+     */
     public function __construct(Repository $config)
     {
         $this->config = $config;
 
-        $this->secret         = $this->config->get('restapi.secret');
-        $this->requestTimeout = $this->config->get('restapi.request_timeout');
-        $this->connectTimeout = $this->config->get('restapi.connect_timeout');
+        $this->secret = $this->config->get('restapi.secret');
+        $this->client = new Client([
+                                       'timeout'         => $this->config->get('restapi.request_timeout'),
+                                       'connect_timeout' => $this->config->get('restapi.connect_timeout'),
+                                       'http_errors'     => true,
+                                   ]);
 
-        $this->client = new Client(
-            [
-                'timeout'         => $this->requestTimeout,
-                'connect_timeout' => $this->connectTimeout,
-                'http_errors'     => true,
-            ]);
+        $this->callbackConstruct();
     }
 
+    /**
+     * @date   2019/1/30
+     * @author <zhufengwei@aliyun.com>
+     * @param $params
+     * @param $secret
+     * @return mixed
+     */
     protected function addSign($params, $secret)
     {
-        if ($secret && !isset($params['sign'])) {
-            $params['sign'] = $this->getSign($params, $secret);
+        if ($secret && !isset($params[$this->signKeyName])) {
+            $params[$this->signKeyName] = $this->getSign($params, $secret);
         }
 
         return $params;
     }
 
+    /**
+     * @date   2019/1/30
+     * @author <zhufengwei@aliyun.com>
+     * @param $params
+     * @param $secret
+     * @return string
+     */
     protected function getSign($params, $secret)
     {
         ksort($params);
@@ -45,68 +93,123 @@ class Restapi
         return md5(md5($paramStr) . $secret);
     }
 
-    public function get($module, $uri, $params, $headers = [], $action = 'GET')
+    /**
+     * @date   2019/1/30
+     * @author <zhufengwei@aliyun.com>
+     * @param        $module
+     * @param        $uri
+     * @param        $params
+     * @param array  $headers
+     * @param string $action
+     * @return bool|mixed
+     * @throws \GuzzleHttp\Exception\GuzzleException
+     */
+    public function get($module, $uri, $params, $headers = [])
     {
         $options = [
             'query'   => $this->addSign($params, $this->config->get('restapi.' . $module . '.secret')),
             'headers' => $headers
         ];
 
-        $result = $this->client->send(
-            $this->makeRequest($module, $uri, $params, $headers, $action),
-            $options
-        );
+        try {
+            $response = $this->client->get($this->getBaseUri($module) . $uri, $options);
 
-        return $this->getResponse($module, $params, $result, $uri);
+            return $this->getResponse($module, $params, $response, $uri);
+        } catch (RequestException $e) {
+            $this->applyCallback($module, $e->getMessage(), $e->getCode(), compact('uri', 'params'));
+        }
     }
 
-    public function post($module, $uri, $params, $headers = [], $action = 'POST')
+    /**
+     * @date   2019/1/30
+     * @author <zhufengwei@aliyun.com>
+     * @param        $module
+     * @param        $uri
+     * @param        $params
+     * @param array  $headers
+     * @param string $action
+     * @return bool|mixed
+     * @throws \GuzzleHttp\Exception\GuzzleException
+     */
+    public function post($module, $uri, $params, $headers = [])
     {
         $options = [
             'form_params' => $this->addSign($params, $this->config->get('restapi.' . $module . '.secret')),
             'headers'     => $headers
         ];
 
-        $result = $this->client->send(
-            $this->makeRequest($module, $uri, $params, $headers, $action),
-            $options
-        );
+        try {
+            $response = $this->client->post($this->getBaseUri($module) . $uri, $options);
 
-        return $this->getResponse($module, $params, $result, $uri);
+            return $this->getResponse($module, $params, $response, $uri);
+        } catch (RequestException $e) {
+            $this->applyCallback($module, $e->getMessage(), $e->getCode(), compact('uri', 'params'));
+        }
     }
 
-    public function multipart($module, $uri, $params, $headers = [], $action = 'POST')
+    /**
+     * @date   2019/1/30
+     * @author <zhufengwei@aliyun.com>
+     * @param        $module
+     * @param        $uri
+     * @param        $params
+     * @param array  $headers
+     * @param string $action
+     * @return bool|mixed
+     * @throws \GuzzleHttp\Exception\GuzzleException
+     */
+    public function multipart($module, $uri, $params, $headers = [])
     {
         $options = [
             'multipart' => $this->addSign($params, $this->config->get('restapi.' . $module . '.secret')),
             'headers'   => $headers
         ];
 
-        $result = $this->client->send(
-            $this->makeRequest($module, $uri, $params, $headers, $action),
-            $options
-        );
+        try {
+            $response = $this->client->post($this->getBaseUri($module) . $uri, $options);
 
-        return $this->getResponse($module, $params, $result, $uri);
+            return $this->getResponse($module, $params, $response, $uri);
+        } catch (RequestException $e) {
+            $this->applyCallback($module, $e->getMessage(), $e->getCode(), compact('uri', 'params'));
+        }
     }
 
-    protected function makeRequest($module, $uri, $params, $headers = [], $action)
+    /**
+     * @date   2019/1/30
+     * @author <zhufengwei@aliyun.com>
+     * @param       $module
+     * @param       $uri
+     * @param       $params
+     * @param array $headers
+     * @param       $action
+     * @return \GuzzleHttp\Psr7\Request
+     */
+    protected function makeRequest($module, $uri, $action)
     {
         $base_uri = $this->getBaseUri($module);
         return new Request($action, $base_uri . $uri);
     }
 
+    /**
+     * @date   2019/1/30
+     * @author <zhufengwei@aliyun.com>
+     * @param $module
+     * @param $params
+     * @param $response
+     * @param $uri
+     * @return bool|mixed
+     */
     protected function getResponse($module, $params, $response, $uri)
     {
         if (!$response) {
-            $this->addlog($module, $uri, $params, 'RESQUST_ERROR', 404);
+            $this->applyCallback($module, '请求方法不存在！', 404, compact('uri', 'params'));
             return false;
         }
 
         $code = $response->getStatusCode();
 
         if ($code != 200) {
-            $this->addlog($module, $uri, $params, '', $code);
+            $this->applyCallback($module, '请求出错！', $code, compact('uri', 'params'));
             return false;
         }
 
@@ -114,14 +217,21 @@ class Restapi
         $result     = json_decode($stringBody, true);
 
         if (!$result) {
-            $this->addlog($module, $uri, $params, $stringBody, $code);
+            $this->applyCallback($module, $stringBody, $code, compact('uri', 'params'));
             return false;
         }
 
-        $this->addlog($module, $uri, $params, $result, $code);
+        static::$logger->restapi(compact('module', 'uri', 'params', 'result', 'code'));
         return $result;
     }
 
+    /**
+     * @date   2019/1/30
+     * @author <zhufengwei@aliyun.com>
+     * @param $apis
+     * @return array
+     * @throws \Throwable
+     */
     public function mget($apis)
     {
         if (!is_array($apis)) {
@@ -165,36 +275,36 @@ class Restapi
         return $return;
     }
 
+    /**
+     * @date   2019/1/30
+     * @author <zhufengwei@aliyun.com>
+     * @param $module
+     * @return mixed
+     */
     protected function getBaseUri($module)
     {
         return $this->config->get('restapi.' . $module . '.base_uri');
     }
 
-    public function addlog($module, $uri, $request, $response, $code)
+    /**
+     * @date   2019/1/30
+     * @author <zhufengwei@aliyun.com>
+     * @param string $name
+     * @return $this
+     */
+    public function setSignKeyName(string $name)
     {
-        $logger    = new Logger($this->config->get('restapi.log_channel'));
-        $file_name = $this->config->get('restapi.log_file');
+        $this->signKeyName = $name;
 
-        try {
-            $logger->pushHandler(new StreamHandler($file_name, Logger::INFO, false));
-        } catch (\Exception $e) {
-            $logger->info('pushHandlerError', $e->getMessage());
-        }
-
-        $logger->pushProcessor(function ($record) use ($request, $uri, $response, $code) {
-            $record['extra'] = [
-                'uri'      => $uri,
-                'request'  => $request,
-                'response' => $response,
-                'code'     => $code
-            ];
-
-            return $record;
-        });
-
-        $logger->addInfo(self::BASENAME . $module);
+        return $this;
     }
 
+    /**
+     * @date   2019/1/30
+     * @author <zhufengwei@aliyun.com>
+     * @param $request
+     * @return bool
+     */
     public function checkServer($request)
     {
         $inputs = $request->all();
@@ -204,12 +314,12 @@ class Restapi
         $path = '/' . $path;
         unset($inputs[$path]);
 
-        if (!isset($inputs['sign'])) {
+        if (!isset($inputs[$this->signKeyName])) {
             return false;
         }
 
-        $sign = $inputs['sign'];
-        unset($inputs['sign']);
+        $sign = $inputs[$this->signKeyName];
+        unset($inputs[$this->signKeyName]);
 
         return $sign == $this->getSign($inputs, $this->secret);
     }
