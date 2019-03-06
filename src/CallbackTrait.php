@@ -33,7 +33,7 @@ trait CallbackTrait
     public function setLogger(string $name = 'restapi')
     {
         if (!static::$logger instanceof LogCollector) {
-            $mlogger = app(Logger::class, [$name])
+            $mlogger = app(Logger::class, compact('name'))
                 ->setChannel($this->config->get('restapi.log_channel'))
                 ->setFile($this->config->get('restapi.log_file'))
                 ->setMode($this->config->get('restapi.log_mode'))
