@@ -20,21 +20,36 @@ composer require listen/restapi
 update config/app.php
 ```
 'providers' => [
-        ......
-        Listen\Restapi\RestapiServiceProvider::class,
-    ],
+    ......
+    Listen\Restapi\RestapiServiceProvider::class,
+],
     
 'aliases' => [
-        ......
-        'Restapi'      => Listen\Restapi\Facades\Restapi::class,
-    ],
+    ......
+    'Restapi'      => Listen\Restapi\Facades\Restapi::class,
+],
 ```
 
 example
 ```php
 # GET
-Restapi::get($modelName, $uri, $params, $headers);
+Restapi::get($moduleName, $uri, $params, $headers);
 
 # POST
-Restapi::get($modelName, $uri, $params, $headers);
+Restapi::post($moduleName, $uri, $params, $headers);
+
+# GETASYNC
+Restapi::getAsync($moduleName, $uri, ['name' => 'listen'], function ($response, $module, $params, $uri) {
+    dd($response);
+}, function ($e, $module, $params, $uri) {
+    dd($e->getMessage());
+});
+
+# POSTASYNC
+Restapi::postAsync($moduleName, $uri, ['name' => 'listen'], function ($response, $module, $params, $uri) {
+    dd($response);
+}, function ($e, $module, $params, $uri) {
+    dd($e->getMessage());
+});
+        
 ```

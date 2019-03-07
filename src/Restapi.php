@@ -4,8 +4,10 @@ namespace Listen\Restapi;
 
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\RequestException;
+use GuzzleHttp\Promise\Promise;
 use GuzzleHttp\Psr7\Request;
 use Illuminate\Contracts\Config\Repository;
+use Psr\Http\Message\ResponseInterface;
 
 class Restapi
 {
@@ -175,6 +177,72 @@ class Restapi
     }
 
     /**
+     * @date   2019/3/7
+     * @author <zhufengwei@aliyun.com>
+     * @param               $module
+     * @param               $uri
+     * @param               $params
+     * @param callable|null $onFulfilled
+     * @param callable|null $onRejected
+     * @param array         $headers
+     */
+    public function getAsync($module, $uri, $params, Callable $onFulfilled = null, Callable $onRejected = null, $headers = [])
+    {
+        $options = [
+            'query'   => $this->addSign($params, $this->config->get('restapi.' . $module . '.secret')),
+            'headers' => $headers
+        ];
+
+        $promise = $this->client->getAsync($this->getBaseUri($module) . $uri, $options);
+        $this->afterRequest($promise, $module, $uri, $params, $onFulfilled, $onRejected);
+    }
+
+    /**
+     * @date   2019/3/7
+     * @author <zhufengwei@aliyun.com>
+     * @param               $module
+     * @param               $uri
+     * @param               $params
+     * @param callable|null $onFulfilled
+     * @param callable|null $onRejected
+     * @param array         $headers
+     */
+    public function postAsync($module, $uri, $params, Callable $onFulfilled = null, Callable $onRejected = null, $headers = [])
+    {
+        $options = [
+            'form_params' => $this->addSign($params, $this->config->get('restapi.' . $module . '.secret')),
+            'headers'     => $headers
+        ];
+
+        $promise = $this->client->postAsync($this->getBaseUri($module) . $uri, $options);
+        $this->afterRequest($promise, $module, $uri, $params, $onFulfilled, $onRejected);
+    }
+
+    /**
+     * @date   2019/3/7
+     * @author <zhufengwei@aliyun.com>
+     * @param \GuzzleHttp\Promise\Promise $promise
+     * @param                             $module
+     * @param                             $uri
+     * @param                             $params
+     * @param callable|null               $onFulfilled
+     * @param callable|null               $onRejected
+     */
+    protected function afterRequest(Promise $promise, $module, $uri, $params, Callable $onFulfilled = null, Callable $onRejected = null)
+    {
+        $promise->then(
+            function (ResponseInterface $response) use ($onFulfilled, $module, $params, $uri) {
+                $onFulfilled($response, $module, $params, $uri);
+            },
+            function (RequestException $e) use ($onRejected, $module, $params, $uri) {
+                $this->applyCallback($module, $e->getMessage(), $e->getCode(), compact('uri', 'params'));
+                $onRejected($e, $module, $params, $uri);
+            });
+
+        $promise->wait(false);
+    }
+
+    /**
      * @date   2019/1/30
      * @author <zhufengwei@aliyun.com>
      * @param       $module
@@ -199,7 +267,7 @@ class Restapi
      * @param $uri
      * @return bool|mixed
      */
-    protected function getResponse($module, $params, $response, $uri)
+    public function getResponse($module, $params, $response, $uri)
     {
         if (!$response) {
             $this->applyCallback($module, '请求方法不存在！', 404, compact('uri', 'params'));
@@ -207,7 +275,6 @@ class Restapi
         }
 
         $code = $response->getStatusCode();
-
         if ($code != 200) {
             $this->applyCallback($module, '请求出错！', $code, compact('uri', 'params'));
             return false;
@@ -215,7 +282,6 @@ class Restapi
 
         $stringBody = strval($response->getBody());
         $result     = json_decode($stringBody, true);
-
         if (!$result) {
             $this->applyCallback($module, $stringBody, $code, compact('uri', 'params'));
             return false;
