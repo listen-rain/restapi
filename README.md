@@ -33,7 +33,7 @@ update config/app.php
 ## publish config
 
 ```
-vendor:publish --provider='Listen\Restapi\RestapiServiceProvider'
+php artisan vendor:publish --provider='Listen\Restapi\RestapiServiceProvider'
 ```
 
 example
