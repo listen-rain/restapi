@@ -36,7 +36,19 @@ update config/app.php
 php artisan vendor:publish --provider='Listen\Restapi\RestapiServiceProvider'
 ```
 
-example
+## push exception callback
+
+```
+\Restapi::pushExceptionCallback('dingtalk', function ($module, $message, $code, $otherParams) {
+            $title       = "restapi.{$module}.error";
+            $otherParams = json_encode($otherParams);
+            
+            // https://github.com/listen-rain/dingtalk
+            apiDingtalk("{$title}: {$message}\n\n Code: {$code}\n\n {$otherParams}", $title);
+        });
+```
+## example
+
 ```php
 # GET
 Restapi::get($moduleName, $uri, $params, $headers);
