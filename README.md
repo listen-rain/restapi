@@ -30,6 +30,12 @@ update config/app.php
 ],
 ```
 
+## publish config
+
+```
+vendor:publish --provider='Listen\Restapi\RestapiServiceProvider'
+```
+
 example
 ```php
 # GET
