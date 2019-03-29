@@ -4,9 +4,12 @@ namespace Listen\Restapi;
 
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\RequestException;
+use GuzzleHttp\Pool;
 use GuzzleHttp\Promise\Promise;
 use GuzzleHttp\Psr7\Request;
 use Illuminate\Contracts\Config\Repository;
+use Listen\Restapi\Exceptions\RestapiException;
+use phpDocumentor\Reflection\Types\Array_;
 use Psr\Http\Message\ResponseInterface;
 
 class Restapi
@@ -245,22 +248,6 @@ class Restapi
     /**
      * @date   2019/1/30
      * @author <zhufengwei@aliyun.com>
-     * @param       $module
-     * @param       $uri
-     * @param       $params
-     * @param array $headers
-     * @param       $action
-     * @return \GuzzleHttp\Psr7\Request
-     */
-    protected function makeRequest($module, $uri, $action)
-    {
-        $base_uri = $this->getBaseUri($module);
-        return new Request($action, $base_uri . $uri);
-    }
-
-    /**
-     * @date   2019/1/30
-     * @author <zhufengwei@aliyun.com>
      * @param $module
      * @param $params
      * @param $response
@@ -294,62 +281,101 @@ class Restapi
     /**
      * @date   2019/1/30
      * @author <zhufengwei@aliyun.com>
-     * @param $apis
+     * @param $apis ['module', 'uri', 'method', 'params', 'headers']
+     *              Module is Request Name By Custom
      * @return array
      * @throws \Throwable
      */
-    public function mget($apis)
+    public function multiModuleRequest(array $apis): array
     {
-        if (!is_array($apis)) {
-            return [];
-        }
-
         $promises = [];
-        foreach ($apis as $k => $api) {
-            if (!isset($api['module']) || !isset($api['uri'])) {
-                continue;
+        foreach ($apis as $key => $api) {
+            $uri     = array_get($api, 'uri', '');
+            $method  = array_get($api, 'method', 'GET');
+            $module  = array_get($api, 'module', '');
+            $params  = array_get($api, 'params', []);
+            $headers = array_get($api, 'headers', []);
+            // 检验模块
+            if (!$module) {
+                throw new RestapiException('Module Con\'t Be null ! (Module is Request Name By Custom)');
             }
-            $module   = $api['module'];
-            $secret   = $this->config->get('restapi.' . $module . '.secret');
-            $params   = $this->addSign($api['params'], $secret);
-            $base_uri = $this->getBaseUri($module);
-            $headers  = empty($api['headers']) ? [] : $api['headers'];
-            $method   = empty($api['method']) ? 'POST' : $api['method'];
-            $request  = new Request($method, $base_uri . $api['uri']);
-            if ($method == 'GET') {
-                $option = ['query' => $params];
-            } elseif ($method == 'POST') {
-                $option = ['form_params' => $params];
-            }
-
-            $option['headers'] = $headers;
-            $promises[$k]      = $this->client
-                ->sendAsync($request, $option)
-                ->then(
-                    null,
-                    function (RequestException $e) {
-
-                    });
+            $this->validMethod($method);
+            // 检验URI
+            $uri = $this->checkUri($module, $uri);
+            // 添加签名
+            $secret = array_get($api, 'secret', config('restapi.' . $module . '.secret', ''));
+            $params = $this->addSign($api['params'], $secret);
+            // 创建请求
+            $options           = $this->makeOptions($method, $params);
+            $promises[$module] = $this->client->$method($uri, $options);
         }
-
+        // 发送请求
         $results = \GuzzleHttp\Promise\unwrap($promises);
-        $return  = [];
+        $outputs = [];
         foreach ($apis as $k => $api) {
-            $return[$k] = $this->getResponse($api['module'], $api['params'], $results[$k], $api['uri']);
+            $module           = array_get($api, 'module', 'default');
+            $params           = array_get($api, 'params', []);
+            $uri              = array_get($api, 'uri', '');
+            $uri              = $this->checkUri($module, $uri);
+            $outputs[$module] = $this->getResponse($module, $params, $results[$module], $uri);
         }
 
-        return $return;
+        return $outputs;
     }
 
     /**
-     * @date   2019/1/30
+     * @date   2019/3/29
      * @author <zhufengwei@aliyun.com>
-     * @param $module
-     * @return mixed
+     * @param string        $method
+     * @param string        $uri
+     * @param array         $params
+     * @param array         $headers
+     * @param callable|null $onFulfilled
+     * @param callable|null $onRejected
+     * @return array
      */
-    protected function getBaseUri($module)
+    public function multiRequest(string $method, string $uri, array $params, array $headers = [], Callable $onFulfilled = null, Callable $onRejected = null): array
     {
-        return $this->config->get('restapi.' . $module . '.base_uri');
+        // post must with ['Content-Type' => 'application/x-www-form-urlencoded'] headers
+
+        // 创建请求函数
+        $requests = function ($total) use ($uri, $method, $params, $headers) {
+            foreach ($params as $param) {
+                yield new Request($method, $uri, $headers, http_build_query($param));
+            }
+        };
+        // 初始化响应
+        $responses = [
+            'fulfilled' => [],
+            'rejected'  => []
+        ];
+        // 设置配置项
+        $config = [
+            'concurrency' => config('restapi.concurrency'),
+            'fulfilled'   => ($onFulfilled ?? function ($response, $index) use (&$responses) {
+                    $stringBody               = strval($response->getBody());
+                    $responses['fulfilled'][] = json_decode($stringBody, true);
+                }),
+            'rejected'    => ($onRejected ?? function ($reason, $index) use (&$responses) {
+                    $responses['rejected'][] = $reason;
+                })
+        ];
+        // 发送请求
+        $pool = new Pool($this->client, $requests(count($params)), $config);
+        $pool->promise()->wait();
+
+        return $responses;
+    }
+
+    /**
+     * @date   2019/3/23
+     * @author <zhufengwei@aliyun.com>
+     * @param string $module
+     * @return string
+     */
+    protected function getBaseUri(string $module): string
+    {
+        return trim($this->config->get('restapi.' . $module . '.base_uri', ''));
     }
 
     /**
@@ -388,5 +414,73 @@ class Restapi
         unset($inputs[$this->signKeyName]);
 
         return $sign == $this->getSign($inputs, $this->secret);
+    }
+
+    /**
+     * @date   2019/3/29
+     * @author <zhufengwei@aliyun.com>
+     * @param string $module
+     * @param string $uri
+     * @return string
+     * @throws \Exception
+     */
+    public function checkUri(string $module, string $uri): string
+    {
+        if (strpos($uri, 'http://') === false && strpos($uri, 'https://') === false) {
+            if (!$module || !$baseUri = $this->getBaseUri($module)) {
+                throw new \Exception('Uri Is Illegal !');
+            }
+
+            $uri = $this->checkUri($baseUri . $uri);
+        }
+
+        return $uri;
+    }
+
+    /**
+     * @date   2019/3/29
+     * @author <zhufengwei@aliyun.com>
+     * @param string $method
+     * @throws \Listen\Restapi\Exceptions\RestapiException
+     */
+    public function validMethod(string $method)
+    {
+        if (!in_array($method, ['getAsync', 'postAsync', 'headAsync', 'putAsync'])) {
+            throw new RestapiException('$method is invalid !');
+        }
+
+        // return in_array($method, ['get', 'post', 'put', 'patch', 'delete', 'head', 'options', 'getAsync', 'postAsync', 'deleteAsync', 'headAsync', 'optionsAsync', 'putAsync', 'patchAsync']);
+    }
+
+    public function makeOptions(string $method, array $params): array
+    {
+        // 针对表单请求
+        if (isset($params['multipart'])) {
+            return $params;
+        }
+
+        $options = [];
+        switch ($method) {
+            case 'post':
+                $options['form_params'] = $params;
+                return $options;
+            case 'postAsync':
+                $options['form_params'] = $params;
+                return $options;
+            case 'get':
+                $options['query'] = $params;
+                return $options;
+            case 'getAsync':
+                $options['query'] = $params;
+                return $options;
+            case 'put':
+                $options['json'] = $params;
+                return $options;
+            case 'putAsync':
+                $options['json'] = $params;
+                return $options;
+            default:
+                return $options;
+        }
     }
 }
