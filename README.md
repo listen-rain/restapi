@@ -30,25 +30,7 @@ update config/app.php
 ],
 ```
 
-## publish config
-
-```
-php artisan vendor:publish --provider='Listen\Restapi\RestapiServiceProvider'
-```
-
-## push exception callback
-
-```
-\Restapi::pushExceptionCallback('dingtalk', function ($module, $message, $code, $otherParams) {
-    $title       = "restapi.{$module}.error";
-    $otherParams = json_encode($otherParams);
-
-    // https://github.com/listen-rain/dingtalk
-    apiDingtalk("{$title}: {$message}\n\n Code: {$code}\n\n {$otherParams}", $title);
-});
-```
-## example
-
+single request example
 ```php
 # GET
 Restapi::get($moduleName, $uri, $params, $headers);
@@ -70,4 +52,40 @@ Restapi::postAsync($moduleName, $uri, ['name' => 'listen'], function ($response,
     dd($e->getMessage());
 });
         
+```
+
+multi request example
+```php
+# An interface is requested multiple times
+$params = [
+    [
+        'user_id' => 1,
+        'user_name' => 'new name'
+    ],
+    [
+        'user_id' => 2,
+        'user_name' => 'new name2'
+    ]
+];
+
+$responses = \Restapi::multiRequest('post', 'http://test.local/user', $params, ['Content-Type' => 'application/x-www-form-urlencoded']);
+dd($responses);
+
+# Multiple interfaces are requested concurrently
+$apis = [
+    [
+        'module' => 'user',
+        'method' => 'postAsync',
+        'params' => ['key' => 'value'],
+        'uri'    => 'http://test.local/user'
+    ],
+    [
+        'module' => 'book',
+        'method' => 'postAsync',
+        'params' => ['key' => 'value'],
+        'uri'    => 'http://test.local/book'
+    ],
+];
+$result = \Restapi::multiModuleRequest($apis);
+dd($result);
 ```
