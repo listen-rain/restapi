@@ -337,15 +337,19 @@ class Restapi
      */
     public function multiRequest(string $method, string $uri, array $params, array $headers = [], Callable $onFulfilled = null, Callable $onRejected = null): array
     {
-        // post must with ['Content-Type' => 'application/x-www-form-urlencoded'] headers
-
         $this->validMethod($method, false);
         $uri = $this->checkUri('', $uri);
+        if (strtolower($method) === 'post' && !isset($headers['Content-Type'])) {
+            $headers['Content-Type'] = 'application/x-www-form-urlencoded';
+        }
 
         // 创建请求函数
         $requests = function ($total) use ($uri, $method, $params, $headers) {
             foreach ($params as $param) {
-                yield new Request($method, $uri, $headers, http_build_query($param));
+                $body = http_build_query($param);
+                $uri  = strtolower($method) !== 'get' ?: $uri . '?' . $body;
+
+                yield new Request($method, $uri, $headers, $body);
             }
         };
         // 初始化响应
