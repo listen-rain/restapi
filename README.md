@@ -37,6 +37,30 @@ php artisan vendor:publish --provider='Listen\Restapi\RestapiServiceProvider'
 # The config file restapi.php while in config drictory 
 ```
 
+configure
+```php
+return [
+    'request_timeout' => 5,
+  
+    'connect_timeout' => 5,
+    
+    'secret'          => '',
+    
+    'concurrency'     => 5,
+    
+    'log_file'        => storage_path('logs/restapi.log'),
+    
+    'log_channel'     => 'restapi',
+    
+    'log_mode'        => 'single',
+
+    '<MODULE-NAME>' => [
+        'secret'   => env('RESTAPI_<MODULE-NAME>_KEY', ''),
+        'base_uri' => env('RESTAPI_<MODULE-NAME>_URL', 'http://local.application.com'),
+    ],
+];
+```
+
 single request example
 ```php
 # GET
