@@ -450,11 +450,13 @@ class Restapi
      */
     public function validMethod(string $method, $syncOnly = true)
     {
-        if (!$syncOnly && !in_array($method, ['get', 'post', 'put', 'patch', 'delete', 'head', 'options', 'getAsync', 'postAsync', 'deleteAsync', 'headAsync', 'optionsAsync', 'putAsync', 'patchAsync'])) {
+        $method = strtolower($method);
+
+        if ($syncOnly && !in_array($method, ['getAsync', 'postAsync', 'headAsync', 'putAsync'])) {
             throw new RestapiException('$method is invalid !');
         }
 
-        if (!in_array($method, ['getAsync', 'postAsync', 'headAsync', 'putAsync'])) {
+        if (!in_array($method, ['get', 'post', 'put', 'patch', 'delete', 'head', 'options', 'getAsync', 'postAsync', 'deleteAsync', 'headAsync', 'optionsAsync', 'putAsync', 'patchAsync'])) {
             throw new RestapiException('$method is invalid !');
         }
     }
