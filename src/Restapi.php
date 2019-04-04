@@ -435,7 +435,7 @@ class Restapi
                 throw new \Exception('Uri Is Illegal !');
             }
 
-            $uri = $this->checkUri($baseUri . DIRECTORY_SEPARATOR . $this->uriTrim($uri));
+            $uri = $this->checkUri($module, $baseUri . DIRECTORY_SEPARATOR . $this->uriTrim($uri));
         }
 
         return $uri;
