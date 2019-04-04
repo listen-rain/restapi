@@ -344,10 +344,11 @@ class Restapi
         }
 
         // 创建请求函数
-        $requests = function ($total) use ($uri, $method, $params, $headers) {
-            foreach ($params as $param) {
+        $requests = function (&$params) use ($uri, $method, $headers) {
+            $baseUri = $uri;
+            foreach ($params as $key => $param) {
                 $body = http_build_query($param);
-                $uri  = strtolower($method) !== 'get' ?: $uri . '?' . $body;
+                $uri  = strtolower($method) !== 'get' ?: $baseUri . '?' . $body;
 
                 yield new Request($method, $uri, $headers, $body);
             }
@@ -369,7 +370,7 @@ class Restapi
                 })
         ];
         // 发送请求
-        $pool = new Pool($this->client, $requests(count($params)), $config);
+        $pool = new Pool($this->client, $requests($params), $config);
         $pool->promise()->wait();
 
         return $responses;
