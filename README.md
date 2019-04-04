@@ -30,6 +30,13 @@ update config/app.php
 ],
 ```
 
+publish config
+```sh
+php artisan vendor:publish --provider='Listen\Restapi\RestapiServiceProvider'
+
+# The config file restapi.php while in config drictory 
+```
+
 single request example
 ```php
 # GET
