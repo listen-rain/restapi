@@ -117,7 +117,7 @@ class Restapi
         ];
 
         try {
-            $response = $this->client->get($this->getBaseUri($module) . $uri, $options);
+            $response = $this->client->get($this->checkUri($module, $uri), $options);
 
             return $this->getResponse($module, $params, $response, $uri);
         } catch (RequestException $e) {
@@ -144,7 +144,7 @@ class Restapi
         ];
 
         try {
-            $response = $this->client->post($this->getBaseUri($module) . $uri, $options);
+            $response = $this->client->post($this->checkUri($module, $uri), $options);
 
             return $this->getResponse($module, $params, $response, $uri);
         } catch (RequestException $e) {
@@ -171,7 +171,7 @@ class Restapi
         ];
 
         try {
-            $response = $this->client->post($this->getBaseUri($module) . $uri, $options);
+            $response = $this->client->post($this->checkUri($module, $uri), $options);
 
             return $this->getResponse($module, $params, $response, $uri);
         } catch (RequestException $e) {
@@ -196,7 +196,7 @@ class Restapi
             'headers' => $headers
         ];
 
-        $promise = $this->client->getAsync($this->getBaseUri($module) . $uri, $options);
+        $promise = $this->client->getAsync($this->checkUri($module, $uri), $options);
         $this->afterRequest($promise, $module, $uri, $params, $onFulfilled, $onRejected);
     }
 
@@ -217,7 +217,7 @@ class Restapi
             'headers'     => $headers
         ];
 
-        $promise = $this->client->postAsync($this->getBaseUri($module) . $uri, $options);
+        $promise = $this->client->postAsync($this->checkUri($module, $uri), $options);
         $this->afterRequest($promise, $module, $uri, $params, $onFulfilled, $onRejected);
     }
 
@@ -326,6 +326,7 @@ class Restapi
     /**
      * @date   2019/3/29
      * @author <zhufengwei@aliyun.com>
+     * @param string        $module
      * @param string        $method
      * @param string        $uri
      * @param array         $params
@@ -337,6 +338,9 @@ class Restapi
     public function multiRequest(string $method, string $uri, array $params, array $headers = [], Callable $onFulfilled = null, Callable $onRejected = null): array
     {
         // post must with ['Content-Type' => 'application/x-www-form-urlencoded'] headers
+
+        $this->validMethod($method, false);
+        $uri = $this->checkUri('', $uri);
 
         // 创建请求函数
         $requests = function ($total) use ($uri, $method, $params, $headers) {
@@ -375,7 +379,7 @@ class Restapi
      */
     protected function getBaseUri(string $module): string
     {
-        return trim($this->config->get('restapi.' . $module . '.base_uri', ''));
+        return $this->uriTrim($this->config->get('restapi.' . $module . '.base_uri', ''));
     }
 
     /**
@@ -431,25 +435,28 @@ class Restapi
                 throw new \Exception('Uri Is Illegal !');
             }
 
-            $uri = $this->checkUri($baseUri . $uri);
+            $uri = $this->checkUri($baseUri . DIRECTORY_SEPARATOR . $this->uriTrim($uri));
         }
 
         return $uri;
     }
 
     /**
-     * @date   2019/3/29
+     * @date   2019/4/4
      * @author <zhufengwei@aliyun.com>
      * @param string $method
-     * @throws \Listen\Restapi\Exceptions\RestapiException
+     * @param bool   $syncOnly
+     * @throws RestapiException
      */
-    public function validMethod(string $method)
+    public function validMethod(string $method, $syncOnly = true)
     {
-        if (!in_array($method, ['getAsync', 'postAsync', 'headAsync', 'putAsync'])) {
+        if (!$syncOnly && !in_array($method, ['get', 'post', 'put', 'patch', 'delete', 'head', 'options', 'getAsync', 'postAsync', 'deleteAsync', 'headAsync', 'optionsAsync', 'putAsync', 'patchAsync'])) {
             throw new RestapiException('$method is invalid !');
         }
 
-        // return in_array($method, ['get', 'post', 'put', 'patch', 'delete', 'head', 'options', 'getAsync', 'postAsync', 'deleteAsync', 'headAsync', 'optionsAsync', 'putAsync', 'patchAsync']);
+        if (!in_array($method, ['getAsync', 'postAsync', 'headAsync', 'putAsync'])) {
+            throw new RestapiException('$method is invalid !');
+        }
     }
 
     public function makeOptions(string $method, array $params): array
@@ -482,5 +489,16 @@ class Restapi
             default:
                 return $options;
         }
+    }
+
+    /**
+     * @date   2019/4/4
+     * @author <zhufengwei@aliyun.com>
+     * @param string $str
+     * @return string
+     */
+    public function uriTrim(string $str)
+    {
+        return trim(trim($str), '/');
     }
 }
