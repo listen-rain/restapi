@@ -1,5 +1,6 @@
 {
   "name": "listen/restapi",
+  "description": "基于guzzlehttp/guzzle 封装的 http 请求服务",
   "license": "MIT",
   "version": "3.4.6",
   "authors": [
